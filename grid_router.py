@@ -1,4 +1,3 @@
-from ast import Compare
 import heapq
 import itertools
 import dataclasses
@@ -256,7 +255,6 @@ class MazeRouter():
                 curr = entrydict[curr.predecessor_id]
 
         path.reverse()
-        #print(net_id, len(path))
         self.paths[net_id] = path
 
         
@@ -396,7 +394,6 @@ class MazeRouter():
 
                 entries[id] = succ_search
 
-                #print(succ_search < this_node)
                 heapq.heappush(dj_heap, succ_search)
 
         return find, entries
@@ -432,7 +429,7 @@ class MazeRouter():
         #     self.route_and_clean_up(net_id)
         #netlist_copy.reverse()
         for net_id, _ in netlist_copy:
-            print(net_id)
+            #print(net_id)
             self.route_and_clean_up(net_id)
 
     def write_results(self, filename, format='coursera'):
@@ -475,9 +472,7 @@ class MazeRouter():
                     
 if __name__ == "__main__":
     this_router = MazeRouter()
-    this_router.grid_from_file(r"industry1.grid")
-    this_router.netlist_from_file(r"industry1.nl")
-    #this_router.find_path(0)
-    #this_router.route_and_clean_up(0)
+    this_router.grid_from_file(r"example_files\bench1.grid")
+    this_router.netlist_from_file(r"example_files\bench1.nl")
     this_router.route_all()
-    this_router.write_results("industry1")
+    this_router.write_results(r"example_files\bench1_routed")
