@@ -3,21 +3,7 @@ import heapq
 import itertools
 import dataclasses
 from collections import defaultdict
-#from typing_extensions import Self
-#from re import S
 
-
-# @dataclasses.dataclass(order=True)
-# class SearchNode:
-#     sort_index: int = dataclasses.field(init=False, repr=False)
-#     location: tuple
-#     cost: int
-#     id: int
-#     predecessor_id: int
-#     predecessor_direction: int
-
-#     def __post_init__(self):
-#         self.sort_index = self.cost
 
 class MazeRouter():
     def __init__(self): 
@@ -34,6 +20,17 @@ class MazeRouter():
 
 
     def grid_from_file(self, filename, format='cousera'):
+
+        """
+        Read details of routing surface from file
+
+        parameters:
+            filename: str|path -> file containing net details
+            format: str [coursera,] -> file format. Only coursera is implemented
+        
+        returns:
+    
+        """
 
         with open(filename, 'r') as f: 
             grid_data = next(f)
@@ -62,8 +59,24 @@ class MazeRouter():
             self.VIA_PENALTY = via_penalty
             self.BEND_PENALTY = bend_penalty
             self.grid = [layer1, layer2]
+        
+    
+    def __callable__(self, filename, format):
+        pass
+
     
     def netlist_from_file(self, filename, format = 'coursera'):
+        """
+        Read details of routing surface from file
+
+        parameters:
+            filename: str|path -> file containing net details
+            format: str [coursera,] -> file format. Only coursera is implemented
+        
+        returns:
+            None
+
+        """
 
         with open(filename, 'r') as f:
 
@@ -93,6 +106,11 @@ class MazeRouter():
             self.netlist = netlist
         
     def mark_pin_cells_as_unusable(self):
+
+        """
+        Routine to mark gate positions as unusable for routing
+        """
+
         for idx, net in enumerate(self.netlist):
             
             pin1_location, pin2_location = net
@@ -104,13 +122,19 @@ class MazeRouter():
             self.grid[l2][r2][c2] = -1
 
 
-
     def _set_cell_cost(self, net, cost):
+        """
+        routine to modify the cost associated with using a grid cell for routing
+        """
+
         l, c, r = net
         self.grid[l][r][c] = cost
 
 
     def _unlock_for_routing(self, net_id):
+        """
+        routine to mark the gate positions of a net as usable for routing
+        """
 
         net = self.netlist[net_id]
         pin1_location, pin2_location = net
@@ -121,6 +145,15 @@ class MazeRouter():
 
     
     def _get_node_cost(self, node):
+        """
+        get the cost of routing through a grid cell
+
+        parameters:
+            node: tuple(layer, row, column)
+
+        Returns:
+            gridcost: int
+        """
         l, x, y = node
 
         #yeah, the order of the y and x weirds me out too, lol. iiwis
@@ -130,7 +163,14 @@ class MazeRouter():
     def _get_neighbours_and_direction(self, node):
 
         """
-        direction is reversed direction
+        Determine grid cells that are reachable from current grid cell and 
+        the direction (reversed) to reach those cells
+
+        Parameters:
+            node: tuple(layer, column, row)
+        
+        Returns:
+            iterable of tuples (reached_node, direction)
         """
         l, c, r = node
         
@@ -159,27 +199,22 @@ class MazeRouter():
             yield (0, c, r), self.LAYERUP
     
     def _get_unblocked_neighbours_and_cost(self, node):
+        """
+        Filter out neighbours that are still available for routing
+
+        Parameters:
+            node: tuple(layer, column, row)
+        
+        Returns:
+            iterable of usable reachable nodes
+        """
         unusable = [-1, -2]
 
         for node, direction in self._get_neighbours_and_direction(node):
             if (cost:= self._get_node_cost(node)) not in unusable:
                 yield node, cost, direction
 
-    def _get_direction(self):
-        return 
 
-
-    # @dataclasses.dataclass(order=True)
-    # class SearchNode:
-    #     location: tuple
-    #     #priority: float
-    #     cost: int
-    #     id: int
-    #     predecessor_id: int
-    #     predecessor_direction: int
-
-    #     def __post_init__(self):
-    #         self.sort_index = -self.cost
     @dataclasses.dataclass(order=True)
     class SearchNode:
         sort_index: int = dataclasses.field(init=False, repr=False)
@@ -195,6 +230,19 @@ class MazeRouter():
 
 
     def _cleanup_and_block(self, net_id, find, entrydict):
+        """
+        Mark grid cells in route as unusable for further routing
+        Update self.paths to contain the path of the routed net
+
+        Parameters:
+            net_id: int -> id of routed net
+            find: SearchNode -> end-point of net
+            entrydict: Dict -> dictionary of searchnodes created during routing
+        
+        Returns:
+            None
+
+        """
         path = []
 
         curr = find
@@ -208,11 +256,23 @@ class MazeRouter():
                 curr = entrydict[curr.predecessor_id]
 
         path.reverse()
-        print(net_id, len(path))
+        #print(net_id, len(path))
         self.paths[net_id] = path
 
         
     def _A_distance_estimator(self, location1, location2):
+
+        """
+        Estimate smallest possible cost of routing between two grid cells
+
+        Parameters:
+            location1: tuple(layer, column, row)
+            location2: tuple(layer, column, row)
+        
+        Returns:
+            estimated_cost: int
+        """
+
         l1, c1, r1 = location1
         l2, c2, r2 = location2
 
@@ -233,6 +293,16 @@ class MazeRouter():
 
 
     def find_path(self, net_id):
+        """
+        Find the lowest cost path to route a net
+        
+        Parameters:
+            net_id: int -> id of net to route
+        
+        Returns:
+            find: Searchnode -> final node in route
+            entrydict: Dictionary of Searchnodes created during routing (so the path can be traced)
+        """
 
         self._unlock_for_routing(net_id)
 
@@ -332,6 +402,12 @@ class MazeRouter():
         return find, entries
 
     def route_and_clean_up(self, net_id):
+        """
+        Route a net and do cleanup on the grid afterwards
+
+        parameters:
+            net_id: int -> id of net to be routed
+        """
         find, entries = self.find_path(net_id)
         
         self._cleanup_and_block(net_id, find, entries)
@@ -340,6 +416,11 @@ class MazeRouter():
         del entries
     
     def route_all(self):
+        """
+        Route all nets in the netlist (self.netlist)
+
+        """
+        self.mark_pin_cells_as_unusable()
 
         idxs = [i for i in range(len(self.netlist))]
         netlist_copy = list(self.netlist)
@@ -355,6 +436,14 @@ class MazeRouter():
             self.route_and_clean_up(net_id)
 
     def write_results(self, filename, format='coursera'):
+        """
+        Write routing results for each net in the Coursera format
+
+        Parameters:
+            filename: str|path
+
+
+        """
         with open(filename, 'w') as f:
             line1 = f"{len(self.netlist)} \n"
             f.write(line1)
@@ -384,27 +473,11 @@ class MazeRouter():
                 f.write("0 \n")
 
                     
-
-
-
-
-
-
-
-
-
-
 if __name__ == "__main__":
     this_router = MazeRouter()
     this_router.grid_from_file(r"industry1.grid")
     this_router.netlist_from_file(r"industry1.nl")
-    this_router.mark_pin_cells_as_unusable()
     #this_router.find_path(0)
     #this_router.route_and_clean_up(0)
     this_router.route_all()
     this_router.write_results("industry1")
-    #route = this_router.paths[0]
-
-    location1 = (0,0,0)
-    location2 = (0,1,1)
-    print("myname")
